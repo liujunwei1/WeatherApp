@@ -1,6 +1,7 @@
 package android.coolweather.com.weatherapp;
 
-import android.app.Fragment;
+
+
 import android.app.ProgressDialog;
 import android.coolweather.com.weatherapp.db.City;
 import android.coolweather.com.weatherapp.db.County;
@@ -8,6 +9,7 @@ import android.coolweather.com.weatherapp.db.Province;
 import android.coolweather.com.weatherapp.util.HttpUtil;
 import android.coolweather.com.weatherapp.util.Utility;
 import android.os.Bundle;
+import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -33,6 +35,7 @@ import okhttp3.Response;
  */
 
 public class ChooseAreaFragment extends Fragment {
+    private static final String TAG = "ChooseAreaFragment";
     public static final int LEVEL_PROVINCE = 0;
     public static final int LEVEL_CITY = 1;
     public static final int LEVEL_COUNTY =2;
@@ -64,7 +67,7 @@ public class ChooseAreaFragment extends Fragment {
 
     private int currentLevel;
 
-    public View onCreatView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState){
+    public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState){
         View view = inflater.inflate(R.layout.choose_area,container,false);
         titleText = (TextView) view.findViewById(R.id.title_text);
         backButton = view.findViewById(R.id.back_button);
@@ -78,13 +81,15 @@ public class ChooseAreaFragment extends Fragment {
         super.onActivityCreated(savedInstanceSstate);
         listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int position, long id) {
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
                 if(currentLevel == LEVEL_PROVINCE){
                     selectedProvince = provinceList.get(position);
                     queryCities();
                 }else if(currentLevel == LEVEL_CITY){
                     selectedCity = cityList.get(position);
                     queryCounties();
+                }else if(currentLevel == LEVEL_COUNTY){
+                    String weatherId = countyList.get(position).getWeatherId();
                 }
             }
         });
@@ -98,6 +103,7 @@ public class ChooseAreaFragment extends Fragment {
                 }
             }
         });
+        queryProvinces();
     }
 
     //查询全国所有的省份，优先从数据库查询，如果没有查询到再去服务器上查询
@@ -123,9 +129,9 @@ public class ChooseAreaFragment extends Fragment {
     //查询选中省的所有的市，优先从数据库查询，如果没有再去服务器查询
 
     private  void queryCities(){
-        titleText.setText(selectedCity.getCityName());
+        titleText.setText(selectedProvince.getProvinceName());
         backButton.setVisibility(View.VISIBLE);
-        cityList = DataSupport.where("province = ?",String.valueOf(selectedProvince.getId())).find(City.class);
+        cityList = DataSupport.where("provinceid = ?",String.valueOf(selectedProvince.getId())).find(City.class);
         if(cityList.size() >0){
             dataList.clear();
             for(City  city : cityList){
@@ -157,26 +163,15 @@ public class ChooseAreaFragment extends Fragment {
         }else{
             int provinceCode = selectedProvince.getProvinceCode();
             int cityCode = selectedCity.getCityCode();
-            String address = "http://guolin.tech/api/china/"+provinceCode+"/";
+            String address = "http://guolin.tech/api/china/"+provinceCode+"/" + cityCode;
             queryFromServer(address,"county");
         }
     }
     //根据传入的地址和类型从服务器上查询省市县数据
 
     private  void queryFromServer(String address, final String type){
-
+        showProgressDialog();
         HttpUtil.sendOkHttpRequest(address, new Callback() {
-
-            @Override
-            public void onFailure(Call call, IOException e) {
-                getActivity().runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        closeProgressDialog();
-                        Toast.makeText(getContext(),"加载失败",Toast.LENGTH_SHORT).show();
-                    }
-                });
-            }
 
             @Override
             public void onResponse(Call call, Response response) throws IOException {
@@ -204,6 +199,17 @@ public class ChooseAreaFragment extends Fragment {
                         }
                     });
                 }
+            }
+
+            @Override
+            public void onFailure(Call call, IOException e) {
+                getActivity().runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        closeProgressDialog();
+                        Toast.makeText(getContext(),"加载失败",Toast.LENGTH_SHORT).show();
+                    }
+                });
             }
         });
     }
